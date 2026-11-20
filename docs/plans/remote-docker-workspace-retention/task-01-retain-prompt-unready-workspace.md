@@ -45,8 +45,8 @@ git diff --check
 
 | Lifecycle scenario | Criterion and invariant | Evidence and result |
 | --- | --- | --- |
-| Pause and resume, API entry | .1, readiness recovery retains container and failed stop is retryable | First command, pending |
-| Stale or duplicate cleanup, cancellation, concurrent work | .1, only the claimed execution can settle and concurrent cancel prevents automatic resume | Second command, pending |
+| Pause and resume, API entry | .1, readiness recovery retains container and failed stop is retryable | First command passed with race detection |
+| Stale or duplicate cleanup, cancellation, concurrent work | .1, only the claimed execution can settle and concurrent cancel prevents automatic resume | Second command blocked: compiler killed by memory limit on three attempts |
 | Restart and UI entry | .1, retained checkout survives backend reattachment through Resume | Task 02 real-daemon command, pending |
 
 ## Files likely touched
@@ -81,3 +81,6 @@ The executor fallback case recorded a Docker stop after an unconfirmed stop.
 Catalog validation, specification lint, public documentation validation, and
 whitespace checks passed. Real-daemon restart and browser Resume evidence
 remain in Task 02. This host has no Docker socket.
+
+Changed-file Go lint was started with the installed Go toolchain but did not
+finish on this host and was interrupted.
