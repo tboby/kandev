@@ -93,7 +93,9 @@ image build loop, and lifecycle semantics of the Local Docker executor.
   and Git operations shall behave as they do for a Local Docker session.
 - **AC-EXECUTORS-REMOTE-DOCKER-001.12:** Stop shall preserve the remote
   container, and a later resume shall reconnect to it, re-establishing the SSH
-  connection and forwards. **Reset Environment**, archive, and delete shall
+  connection and forwards. When resume restarts that container, the built-in
+  preparation shall reuse its existing repository checkout and preserve local
+  work. **Reset Environment**, archive, and delete shall
   remove the container on the remote daemon.
 - **AC-EXECUTORS-REMOTE-DOCKER-001.13:** When the SSH connection to the daemon
   drops while a session is live, the session shall surface a transport failure

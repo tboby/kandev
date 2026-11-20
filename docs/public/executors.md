@@ -73,6 +73,8 @@ Remote Docker reaches its daemon over SSH, not over a daemon URL. The profile st
 
 Remote Docker writes nothing to the remote host's filesystem. The `agentctl` helper, the agent's session directory, and the credential and configuration files seeded into it are all delivered into the container through the Docker Engine API, so they live in Docker-managed storage and are removed when the container is. Nothing accumulates in the SSH user's home directory, and archiving or deleting a task removes that agent's credentials with its container.
 
+When Resume restarts a stopped container, the built-in prepare script reuses the matching repository checkout and reruns any configured repository setup hook. The updated script applies to newly created containers. Existing containers keep the script they were created with.
+
 That makes the remote host's requirements narrow: an SSH account that can run commands (`docker system dial-stdio` and a platform probe) and open TCP forwards, plus access to the Docker socket. Remote Docker needs no SFTP subsystem and no writable home directory, so a minimal or immutable host where Docker is the only management surface is supported. This is the one place Remote Docker is less demanding than SSH, which does require SFTP and a writable workdir root.
 
 If you ran Remote Docker before this change, the remote account may still hold a `~/.kandev` tree from those launches. Kandev removes a task's own `~/.kandev/agent-sessions/<instance-id>/` directory when you archive or delete it. The cached `~/.kandev/bin/agentctl` helper is shared with the SSH executor and is left alone; remove it by hand if no SSH profile targets that host.

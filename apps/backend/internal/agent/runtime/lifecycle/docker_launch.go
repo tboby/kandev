@@ -225,6 +225,9 @@ func resolveDockerPrepareScript(req *ExecutorCreateRequest, executorType string)
 	if err != nil {
 		return "", err
 	}
+	if executorType == string(models.ExecutorTypeRemoteDocker) && script == defaultDockerPrepareScript {
+		script = strings.Replace(script, dockerCloneLine, remoteDockerCloneStep, 1)
+	}
 	// A sparse checkout has to finish before the repository setup script runs,
 	// so the placeholder moves to the tail below rather than staying inline.
 	deferSetup := options != nil && len(options.SparseDirectories) > 0

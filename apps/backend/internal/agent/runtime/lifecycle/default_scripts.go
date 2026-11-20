@@ -53,7 +53,7 @@ func upgradeLegacyKubernetesPrepareScript(script string) string {
 	case legacyKubernetesFullPrepareScriptSHA256:
 		upgraded := strings.Replace(script,
 			"clone_tmp=/opt/kandev/.workspace-clone\n",
-			"clone_tmp=/opt/kandev/.workspace-clone\n\n"+kubernetesRepositoryOriginNormalizer,
+			"clone_tmp=/opt/kandev/.workspace-clone\n\n"+repositoryOriginNormalizer,
 			1,
 		)
 		upgraded = strings.Replace(upgraded, legacyKubernetesRepositoryOriginComparison,
@@ -66,7 +66,7 @@ func upgradeLegacyKubernetesPrepareScript(script string) string {
 	}
 }
 
-const kubernetesRepositoryOriginNormalizer = `normalize_repository_origin() {
+const repositoryOriginNormalizer = `normalize_repository_origin() {
   printf '%s\n' "$1" | sed \
     -e 's|^https://[^/@]*@github.com/|https://github.com/|' \
     -e 's|^git@github.com:|https://github.com/|' \
@@ -198,6 +198,28 @@ git remote set-url origin "$(git remote get-url origin | sed 's|https://[^@]*@gi
 {{repository.setup_script}}
 `
 
+const remoteDockerCloneStep = `workspace={{workspace.path}}
+repository_url={{repository.clone_url}}
+
+` + repositoryOriginNormalizer + `
+if workspace_root=$(git -C "$workspace" rev-parse --show-toplevel 2>/dev/null); then
+  if [ "$workspace_root" != "$workspace" ] ||
+     ! kandev_existing_checkout=$(git -C "$workspace" rev-parse --verify 'HEAD^{commit}' 2>/dev/null); then
+    echo 'kandev: retained workspace is not a valid checkout at the expected root' >&2
+    exit 1
+  fi
+  workspace_origin=$(git -C "$workspace" remote get-url origin 2>/dev/null || true)
+  # Resolve insteadOf rules locally so the comparison uses the same URL as clone.
+  expected_origin=$(git -C "$workspace" ls-remote --get-url -- "$repository_url")
+  if [ -z "$workspace_origin" ] ||
+     [ "$(normalize_repository_origin "$workspace_origin")" != "$(normalize_repository_origin "$expected_origin")" ]; then
+    echo 'kandev: retained workspace repository origin does not match the configured repository' >&2
+    exit 1
+  fi
+else
+  ` + dockerCloneLine + `
+fi`
+
 const defaultKubernetesPrepareScript = `#!/bin/sh
 # Prepare a Kubernetes Pod workspace. The workspace may be a retained PVC
 # mounted into a replacement Pod, so repository materialization is idempotent.
@@ -209,13 +231,7 @@ repository_url={{repository.clone_url}}
 repository_branch={{repository.branch}}
 clone_tmp=/opt/kandev/.workspace-clone
 
-normalize_repository_origin() {
-  printf '%s\n' "$1" | sed \
-    -e 's|^https://[^/@]*@github.com/|https://github.com/|' \
-    -e 's|^git@github.com:|https://github.com/|' \
-    -e 's|^ssh://git@github.com/|https://github.com/|'
-}
-
+` + repositoryOriginNormalizer + `
 # ---- Git identity and HTTPS authentication ----
 {{git.identity_setup}}
 git config --global --add safe.directory '*'

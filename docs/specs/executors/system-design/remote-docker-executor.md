@@ -192,6 +192,31 @@ Session state records the container ID, the SSH target, and the published
 ports, so a backend restart can rebuild forwards without recreating the
 container.
 
+### Repository preparation on container restart
+
+Starting a stopped container runs its original entrypoint again, including
+the prepare script embedded at creation. For Remote Docker, make the built-in
+clone step safe to replay. Resolve the guard for both an empty profile script
+and the exact stored built-in template. Use the resolved workspace path and
+verify that it is the checkout root with a valid HEAD and a matching origin.
+Use the established repository origin normalization for equivalent forms.
+In that case keep the checkout and continue the existing preparation flow.
+Pass the retained HEAD to the explicit branch materializer so it keeps the
+local branch and commit on replay. A missing checkout follows the normal
+clone path. An occupied workspace with
+an invalid checkout or a different origin must fail preparation without
+deleting or replacing its contents.
+
+Apply the guard to the resolved built-in clone step. Remote Docker does not
+advertise sparse or on-demand checkout. Keep user-authored script bodies,
+repository setup hooks, branch handling and credential cleanup on their
+existing paths. Running-container reconnect still bypasses the
+entrypoint.
+
+A container created before the fix retains its original script in the Docker
+configuration. Starting it does not pick up a script change from the backend.
+Preserve the retained container during resume.
+
 ### Recoverable failure and failed resume
 
 `AC-EXECUTORS-REMOTE-DOCKER-001.12` also governs cleanup after a recoverable

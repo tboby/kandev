@@ -1,4 +1,4 @@
-import { execFileSync, spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -527,6 +527,52 @@ async function sendMarkerTurn(
 }
 
 test.describe("remote docker executor — recoverable resume", () => {
+  test("Resume restarts the same container without cloning again", async ({
+    testPage,
+    apiClient,
+    seedData,
+  }) => {
+    test.setTimeout(300_000);
+    const { task, sessionId, containerId, repoRoot, markerCommit } = await prepareRecoverableTask(
+      apiClient,
+      seedData,
+      "remote docker stopped container resume",
+    );
+    expect(repoRoot).toBe("/workspace");
+    expect(execInContainer(containerId, "git -C /workspace remote get-url origin")).toMatch(/\S/);
+    await stopSessionAndWait(apiClient, task.id, sessionId);
+    execFileSync("docker", ["stop", "--time", "0", containerId]);
+    const stoppedAt = execFileSync(
+      "docker",
+      ["inspect", "--format", "{{.State.FinishedAt}}", containerId],
+      { encoding: "utf8" },
+    ).trim();
+
+    await testPage.goto(`/t/${task.id}`);
+    const session = new SessionPage(testPage);
+    await session.waitForLoad();
+    await session.recoveryResumeButton().click();
+    await waitForResumedSession(apiClient, task.id, sessionId);
+    await sendMarkerTurn(apiClient, task.id, sessionId);
+
+    expect((await apiClient.getTaskEnvironment(task.id))?.container_id).toBe(containerId);
+    expect(execInContainer(containerId, `cd ${repoRoot} && git rev-parse HEAD`)).toBe(markerCommit);
+    expect(
+      execInContainer(containerId, `cd ${repoRoot} && cat untracked-recovery-marker.txt`),
+    ).toBe("untracked marker");
+    const { stdout, stderr, status } = spawnSync(
+      "docker",
+      ["logs", "--since", stoppedAt, containerId],
+      {
+        encoding: "utf8",
+      },
+    );
+    expect(status, stderr).toBe(0);
+    expect(stdout + stderr).not.toMatch(
+      /Cloning into|destination path .* already exists|prepare script failed/,
+    );
+  });
+
   test("same-session resume keeps the container, journal, and unpushed work", async ({
     apiClient,
     seedData,
