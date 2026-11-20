@@ -537,6 +537,8 @@ Plain Stop preserves a healthy container for resume. Recoverable agent failure a
 docker ps -a --filter label=kandev.managed=true
 ```
 
+If a Remote Docker agent fails to become ready for a prompt during recovery, Kandev keeps the container and checkout. If it cannot confirm that the previous agent stopped, it keeps that execution available for a later cleanup retry.
+
 A session that resumes after a failure can be blocked before the agent starts when agentctl cannot open its delivery journal. Kandev keeps the container, the journal, and the recorded execution identity, and reports the failure instead of opening a second writer or removing the lock. Retry after the previous owner has stopped. The reported reason distinguishes the cases:
 
 - **Lock timeout**: another agentctl instance still owns the same session journal. Wait for that session to finish stopping, then retry. Do not delete `delivery.bbolt` or its lock file.

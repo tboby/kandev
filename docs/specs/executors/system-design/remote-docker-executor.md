@@ -205,6 +205,9 @@ workspace reuse without a previous execution ID. A container ID alone does
 not distinguish reused compute from a new allocation. Conversation-resume
 state must not supply destructive cleanup authority.
 `StopReasonRecoverableAgentFailure` preserves an established remote container.
+`StopReasonPromptReadinessRecovery` preserves the remote container while
+stopping the exact failed agent, including an owner recovered from persisted
+execution inventory.
 `StopReasonAgentBootstrapFailed` preserves a container reused by that attempt.
 Registered-launch rollback preserves the same retained runtime and inventory.
 An explicit reset, archive, delete, or fresh-allocation rollback retains its

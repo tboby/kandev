@@ -4,13 +4,90 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/kandev/kandev/internal/agent/executor"
 	agentctl "github.com/kandev/kandev/internal/agent/runtime/agentctl"
+	"github.com/kandev/kandev/internal/agentruntime"
+	"github.com/kandev/kandev/internal/task/models"
 )
+
+// @covers AC-EXECUTORS-REMOTE-DOCKER-WORKSPACE-001.1
+func TestRemoteDockerPromptReadinessRecovery(t *testing.T) {
+	for _, stopFails := range []bool{false, true} {
+		name := "agent stops"
+		if stopFails {
+			name = "unconfirmed stop retains ownership for retry"
+		}
+		t.Run(name, func(t *testing.T) {
+			engine, dockerServer := newRecordingDockerEngine(t)
+			log := newTestRegistryLogger()
+			registry := NewExecutorRegistry(log)
+			registry.Register(newRemoteDockerTestExecutor(t, dockerServer))
+			mgr := NewManager(newTestRegistry(), &MockEventBus{}, registry, nil, nil, nil, ExecutorFallbackWarn, "", log)
+			cleanupManagerStopCh(t, mgr)
+			var failStop atomic.Bool
+			failStop.Store(stopFails)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				if failStop.Load() {
+					w.WriteHeader(http.StatusInternalServerError)
+				}
+				_, _ = w.Write([]byte(`{"success":true}`))
+			}))
+			t.Cleanup(server.Close)
+			host, port := parseHTTPURL(t, server.URL)
+			execution := &AgentExecution{
+				ID: "instance-1", TaskID: "task-1", SessionID: "session-1",
+				RuntimeName: executor.NameRemoteDocker,
+				agentctl:    agentctl.NewClient(host, port, log),
+				ContainerID: "container-1",
+			}
+			require.NoError(t, mgr.executionStore.Add(execution))
+
+			const reason = StopReasonPromptReadinessRecovery
+			err := mgr.StopAgentWithReason(t.Context(), execution.ID, reason, true)
+			require.Empty(t, engine.snapshot(), "prompt-readiness cleanup must retain the remote container")
+			if stopFails {
+				require.ErrorIs(t, err, errRecoverableStopUnconfirmed)
+				current, exists := mgr.executionStore.Get(execution.ID)
+				require.True(t, exists)
+				require.Same(t, execution, current)
+				failStop.Store(false)
+				err = mgr.StopAgentWithReason(t.Context(), execution.ID, reason, true)
+			}
+			require.NoError(t, err)
+			require.Empty(t, engine.snapshot(), "retry must also retain the container")
+			_, exists := mgr.executionStore.Get(execution.ID)
+			require.False(t, exists, "confirmed stop releases the execution slot")
+		})
+	}
+}
+
+// @covers AC-EXECUTORS-REMOTE-DOCKER-WORKSPACE-001.1
+func TestRemoteDockerPromptReadinessRecoveryWithPendingOwner(t *testing.T) {
+	row := &models.ExecutorRunning{
+		ID: "session-pending", SessionID: "session-pending", TaskID: "task-pending",
+		AgentExecutionID: "execution-pending", Runtime: agentruntime.RuntimeRemoteDocker,
+	}
+	backend := &task08DetailedRecoveryBackend{
+		MockExecutor: &MockExecutor{name: executor.NameRemoteDocker},
+		recoveryResult: func([]*models.ExecutorRunning) ([]*ExecutorInstance, map[string]RecoveryCandidateOutcome, error) {
+			return nil, map[string]RecoveryCandidateOutcome{row.SessionID: RecoveryOutcomeNoMatchingInstance}, nil
+		},
+	}
+	mgr, _ := task08ManagerWithBackend(t, backend)
+	mgr.SetExecutorRunningWriter(&task08ExecutorInventoryWriter{rows: []*models.ExecutorRunning{row}})
+	task08SetSnapshots(mgr, []*models.ExecutorRunning{row})
+	mgr.queueRemoteRecovery(row, task08RemoteSnapshot(row))
+
+	require.NoError(t, mgr.StopAgentWithReason(t.Context(), row.AgentExecutionID, StopReasonPromptReadinessRecovery, true))
+	require.Empty(t, backend.stopInstanceCalls, "proven agent absence must not force cleanup of the remote container")
+	require.NoError(t, mgr.recoveryGuard.CheckLaunchAllowed(row.SessionID))
+}
 
 func newAgentctlStatusServer(t *testing.T, status int) (host string, port int) {
 	t.Helper()

@@ -185,8 +185,6 @@ var (
 
 const promptFailureCleanupTimeout = 5 * time.Second
 
-const promptReadinessRecoveryStopReason = "prompt readiness recovery"
-
 type agentPromptStreamRecoverer interface {
 	RecoverAgentPromptStream(ctx context.Context, sessionID string) error
 }
@@ -4942,7 +4940,7 @@ func (s *Service) stopPromptUnreadyExecution(ctx context.Context, sessionID, exe
 	if s.lspLeases != nil {
 		s.lspLeases.StopLSPLeasesForExecution(executionID)
 	}
-	if err := s.executor.StopExecution(cleanupCtx, executionID, promptReadinessRecoveryStopReason, true); err != nil {
+	if err := s.executor.StopExecution(cleanupCtx, executionID, lifecycle.StopReasonPromptReadinessRecovery, true); err != nil {
 		return err
 	}
 	s.markExecutionFailed(sessionID, executionID)

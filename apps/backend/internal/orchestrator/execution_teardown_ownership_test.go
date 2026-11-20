@@ -256,7 +256,10 @@ func TestReapPromptUnreadyExecution_RetiresActivityAfterForcedStop(t *testing.T)
 		getExecutionIDForSessionFunc: func(context.Context, string) (string, error) {
 			return executionID, nil
 		},
-		stopAgentWithReasonFunc: func(context.Context, string, string, bool) error {
+		stopAgentWithReasonFunc: func(_ context.Context, stoppedExecutionID, reason string, force bool) error {
+			require.Equal(t, executionID, stoppedExecutionID)
+			require.Equal(t, "prompt readiness recovery", reason)
+			require.True(t, force)
 			return nil
 		},
 	}

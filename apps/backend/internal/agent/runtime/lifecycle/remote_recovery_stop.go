@@ -23,6 +23,9 @@ func (m *Manager) stopPendingRemoteRecovery(
 	if reason == StopReasonBackendShutdown || reason == StopReasonRecoverableAgentFailure {
 		return false, nil
 	}
+	if entry.record.Runtime == agentruntime.RuntimeRemoteDocker && reason == StopReasonPromptReadinessRecovery {
+		force = false
+	}
 	if entry.stopRuntimeCompleted {
 		return m.settlePendingRemoteStop(ctx, entry, reason, force, stopWatch)
 	}

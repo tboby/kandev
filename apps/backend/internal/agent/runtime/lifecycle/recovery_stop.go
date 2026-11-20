@@ -11,6 +11,10 @@ import (
 // task runtime and credentials needed to resume its session.
 const StopReasonRecoverableAgentFailure = "recoverable agent failure"
 
+// StopReasonPromptReadinessRecovery stops an unready execution before resuming
+// the session.
+const StopReasonPromptReadinessRecovery = "prompt readiness recovery"
+
 // errRecoverableStopUnconfirmed leaves a preserved runtime tracked after the
 // agent process could not be confirmed stopped.
 var errRecoverableStopUnconfirmed = errors.New("agent stop was not confirmed; runtime retained for retry")
@@ -18,7 +22,9 @@ var errRecoverableStopUnconfirmed = errors.New("agent stop was not confirmed; ru
 // shouldPreserveRemoteDockerStopReason keeps an unconfirmed agent stop from
 // stopping or removing a workspace that recovery still owns.
 func shouldPreserveRemoteDockerStopReason(reason string) bool {
-	return reason == StopReasonRecoverableAgentFailure || reason == StopReasonAgentBootstrapFailed
+	return reason == StopReasonRecoverableAgentFailure ||
+		reason == StopReasonAgentBootstrapFailed ||
+		reason == StopReasonPromptReadinessRecovery
 }
 
 // shouldPreserveKubernetesRuntime retains established Kubernetes resources for
@@ -38,10 +44,8 @@ func shouldPreserveRemoteDockerRuntime(execution *AgentExecution, reason string)
 	if execution == nil || execution.RuntimeName != executor.NameRemoteDocker {
 		return false
 	}
-	if reason == StopReasonRecoverableAgentFailure {
-		return true
-	}
-	return reason == StopReasonAgentBootstrapFailed && execution.attachedExistingCompute
+	return shouldPreserveRemoteDockerStopReason(reason) &&
+		(reason != StopReasonAgentBootstrapFailed || execution.attachedExistingCompute)
 }
 
 func shouldPreserveRecoverableRuntime(execution *AgentExecution, reason string) bool {
