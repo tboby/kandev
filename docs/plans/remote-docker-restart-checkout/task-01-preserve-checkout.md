@@ -80,9 +80,11 @@ Docker, the existing SSH fixture and the web workspace dependencies.
 
 - The focused Go test failed against the original sources with exit 128 on
   the second clone for both profile cases. The same test passed with the fix.
-- The adjacent Go run hit the Kubernetes fixture's root check because the
-  test temp directory was inside the repository. A retry with an external
-  test temp directory is pending.
+- Docker reconnect and the other adjacent Kubernetes preparation tests
+  passed. `TestDefaultPrepareScriptKubernetesReusesRetainedPVCWorkspace`
+  failed the same mount-root assertion against both the fix and the original
+  revision (`ed135ac7`). That baseline failure reproduced with an external
+  temporary directory.
 - Specification and public documentation validators passed. The browser spec
   passed Prettier. Playwright stopped at the missing `make` executable
   before test execution. The runner also has no Docker daemon. Browser
