@@ -403,7 +403,7 @@ function CreateProfileSections({
             onUpdateAdditionalNetwork={form.updateAdditionalNetwork}
             onRemoveAdditionalNetwork={form.removeAdditionalNetwork}
           />
-          {form.isLocalDocker && (
+          {form.isDocker && (
             <UserNamespacesCard
               enabled={form.allowUserNamespaces}
               baselineEnabled={false}

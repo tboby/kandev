@@ -518,7 +518,7 @@ Leaving it empty uses the daemon's own default network, which is what Kandev did
 
 Profiles can enable **User namespace support** under the Dockerfile build card. When enabled, the container is launched with a tailored seccomp profile that relaxes namespace-related syscall restrictions, plus `apparmor=unconfined`. This allows agent runtimes that sandbox file edits via user namespaces (e.g., Codex's `apply_patch` → bwrap) to work inside the container.
 
-The setting is **off by default**, only available on Docker profiles, and affects **newly created containers only**. Existing task environments must be reset for the change to take effect. See the [security ADR](../decisions/2026-08-18-executor-userns-security-options.md) for details on the exact syscall changes and security model.
+The setting is **off by default**, available on local and remote Docker profiles, and affects **newly created containers only**. Existing task environments must be reset for the change to take effect. The Docker host's kernel and security policy must also permit user namespaces. See the [security ADR](../decisions/2026-08-18-executor-userns-security-options.md) for details on the exact syscall changes and security model.
 
 ### Credentials and security
 

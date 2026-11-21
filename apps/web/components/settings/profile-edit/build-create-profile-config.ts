@@ -84,7 +84,7 @@ function applyDockerCreateConfig(
   if (input.isDocker && input.imageTag.trim()) {
     config.image_tag = input.imageTag.trim();
   }
-  if (input.isLocalDocker && input.allowUserNamespaces) {
+  if (input.isDocker && input.allowUserNamespaces) {
     config.allow_user_namespaces = "true";
   }
   applyDockerNetworks(config, input);

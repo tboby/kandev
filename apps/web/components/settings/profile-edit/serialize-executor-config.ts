@@ -72,7 +72,7 @@ export function buildSaveConfig(
   setTextConfig(
     config,
     "allow_user_namespaces",
-    form.isLocalDocker && form.allowUserNamespaces ? "true" : "",
+    form.isDocker && form.allowUserNamespaces ? "true" : "",
   );
   setTextConfig(config, "ssh_shell", form.isSSH ? form.sshShell.trim() : "");
   setBoolConfig(config, "ssh_reclaim_task_dir", form.isSSH, form.sshReclaimTaskDir);

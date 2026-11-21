@@ -118,12 +118,12 @@ describe("buildSaveConfig", () => {
     expect(config.allow_user_namespaces).toBeUndefined();
   });
 
-  it("removes allowUserNamespaces from a remote Docker profile", () => {
+  it("persists allowUserNamespaces on a remote Docker profile", () => {
     const config = buildSaveConfig(
       form({ isDocker: true, isLocalDocker: false, allowUserNamespaces: true }),
       { allow_user_namespaces: "true" },
     );
-    expect(config.allow_user_namespaces).toBeUndefined();
+    expect(config.allow_user_namespaces).toBe("true");
   });
 });
 

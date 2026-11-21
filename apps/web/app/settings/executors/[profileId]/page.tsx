@@ -384,7 +384,7 @@ function ExecutorSpecificSections({ executor, profile, form, secrets }: ProfileE
           imageTag={form.imageTag}
           onImageTagChange={form.setImageTag}
           remoteExecutorId={executor.type === "remote_docker" ? executor.id : undefined}
-          allowsUserNamespaces={form.isLocalDocker}
+          allowsUserNamespaces={form.isDocker}
           allowUserNamespaces={form.allowUserNamespaces}
           onAllowUserNamespacesChange={form.setAllowUserNamespaces}
           networks={form}
