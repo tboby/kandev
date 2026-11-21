@@ -23,6 +23,64 @@ function containerExists(containerId: string): boolean {
 }
 
 test.describe("remote docker executor — task lifecycle", () => {
+  // @covers AC-EXECUTORS-REMOTE-USERNS-001.2
+  // @covers AC-EXECUTORS-REMOTE-USERNS-001.5
+  test("enables user namespaces in a newly launched remote container", async ({
+    apiClient,
+    seedData,
+  }) => {
+    test.setTimeout(300_000);
+    const profile = await apiClient.getExecutorProfile(
+      seedData.remoteDockerExecutorId,
+      seedData.remoteDockerExecutorProfileId,
+    );
+    const config = profile.config ?? {};
+    let taskId: string | undefined;
+    try {
+      await apiClient.updateExecutorProfile(
+        seedData.remoteDockerExecutorId,
+        seedData.remoteDockerExecutorProfileId,
+        {
+          config: { ...config, allow_user_namespaces: "true" },
+        },
+      );
+      const task = await apiClient.createTaskWithAgent(
+        seedData.workspaceId,
+        "remote docker user namespaces",
+        seedData.agentProfileId,
+        {
+          description: "/e2e:simple-message",
+          workflow_id: seedData.workflowId,
+          workflow_step_id: seedData.startStepId,
+          repository_ids: [seedData.repositoryId],
+          executor_profile_id: seedData.remoteDockerExecutorProfileId,
+        },
+      );
+      taskId = task.id;
+      await waitForLatestSessionDone(apiClient, task.id, 1, "Wait for the remote Docker session");
+      const env = await apiClient.getTaskEnvironment(task.id);
+      expect(env?.container_id).toBeTruthy();
+      execFileSync("docker", [
+        "exec",
+        env!.container_id!,
+        "unshare",
+        "--user",
+        "--map-root-user",
+        "true",
+      ]);
+    } finally {
+      try {
+        if (taskId) await apiClient.deleteTask(taskId);
+      } finally {
+        await apiClient.updateExecutorProfile(
+          seedData.remoteDockerExecutorId,
+          seedData.remoteDockerExecutorProfileId,
+          { config },
+        );
+      }
+    }
+  });
+
   test("launches a container on the remote daemon and reattaches on resume", async ({
     apiClient,
     seedData,

@@ -90,4 +90,12 @@ The linked requirement, design, security decision and existing Docker namespace 
 
 ## Results
 
-Pending.
+- Host compatibility probe on Mellifera: `unshare --user --map-root-user true`
+  succeeded in a disposable, network-isolated `kandev/multi-agent:latest`
+  container with the generated Kandev seccomp profile and
+  `apparmor=unconfined`. The same command with Docker defaults failed with
+  `Operation not permitted`. Both containers used `--rm`. This is host
+  compatibility evidence, not proof of the Kandev remote launch path.
+- Specification validation passed: `python3 scripts/list-docs.py validate` and
+  `python3 scripts/lint-spec-files.py --all`.
+- The two specified frontend unit suites passed (21 tests).
